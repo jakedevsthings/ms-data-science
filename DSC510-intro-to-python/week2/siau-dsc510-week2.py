@@ -11,18 +11,20 @@ Description: This script defines a program that does the following:
 5. Displays a receipt with the company name, number of feet of fiber optic cable, and the total cost.
 """
 
-if __name__ == "__main__":
+def main():
     print("Welcome to Jacob Siau's fiber optic cable installation service!")
 
     # get user input for company name and feet of cable
     company_name = input("Please enter your company name: ")
 
+    # get user input for feet of cable
+    # validate input to ensure it is a positive number
     feet_of_cable = -1
     while feet_of_cable < 0:
         try:
             feet_of_cable = float(input("Please enter the amount of fiber optic cable you need (in feet): "))
         except ValueError:
-            print(f"Invalid input! Please enter a numeric value for the feet of cable.")
+            print("Invalid input! Please enter a numeric value for the feet of cable.")
 
     # Calculate the total cost
     cost_per_foot = 0.95 # Cost per foot of fiber optic cable per the assignment
@@ -32,3 +34,6 @@ if __name__ == "__main__":
     print(f"Company name: {company_name}")
     print(f"Feet of fiber optic cable installed: {feet_of_cable} feet")
     print(f"Total cost: ${total_cost:.2f}")
+
+if __name__ == "__main__":
+    main()
