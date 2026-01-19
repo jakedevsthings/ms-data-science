@@ -1,0 +1,118 @@
+---
+title: "Week 9 Exercise"
+author: "Jacob Siau"
+output: html_document
+---
+```{r}
+df <- read.csv("travel_insurance.csv", stringsAsFactors = FALSE)
+cat("Rows:", nrow(df), "Cols:", ncol(df), "\n")
+cat("Column names (first 10):\n")
+print(head(names(df), 10))
+
+to_factor <- sapply(df, function(x) {
+    if (is.character(x)) {
+        ux <- unique(x[!is.na(x)])
+        len <- length(ux)
+        return(len >= 2 && len <= 12)
+    } else {
+        return(FALSE)
+    }
+})
+df[to_factor] <- lapply(df[to_factor], factor)
+
+keep_cols <- sapply(df, function(x) sum(!is.na(x)) > 0)
+df <- df[keep_cols]
+
+num_cols <- names(df)[sapply(df, is.numeric)]
+num_cols <- num_cols[sapply(num_cols, function(nm) {
+    v <- df[[nm]]
+    v <- v[!is.na(v)]
+    length(unique(v)) > 5
+})]
+
+preferred_y <- c("Duration", "Age", "AnnualIncome", "NetPremium", "Premium", "Amount", "ClaimAmount")
+y_col <- intersect(preferred_y, num_cols)
+if (length(y_col) == 0) {
+    if (length(num_cols) == 0) stop("No suitable numeric outcome found.")
+    y_col <- num_cols[1]
+} else {
+    y_col <- y_col[1]
+}
+cat("Chosen outcome (Y):", y_col, "\n")
+
+is_factorish <- sapply(df, function(x) is.factor(x) || is.character(x))
+fac_cols <- names(df)[is_factorish]
+fac_cols <- fac_cols[sapply(fac_cols, function(nm) {
+    vals <- df[[nm]]
+    if (is.character(vals)) vals <- factor(vals)
+    if (!is.factor(vals)) {
+        return(FALSE)
+    }
+    ux <- unique(vals[!is.na(vals)])
+    k <- length(ux)
+    return(k >= 2 && k <= 8)
+})]
+fac_cols <- setdiff(fac_cols, y_col)
+preferred_factors <- c("Destination", "Agency", "ProductName", "Gender", "Employment.Type", "Channel", "MaritalStatus")
+f1 <- intersect(preferred_factors, fac_cols)
+if (length(f1) == 0) f1 <- fac_cols
+if (length(f1) == 0) stop("No suitable factor columns found.")
+
+factor1 <- f1[1]
+f2_pool <- setdiff(fac_cols, factor1) # for two-way
+have_two_way <- length(f2_pool) > 0
+
+cat("Chosen factor1:", factor1, "\n")
+if (have_two_way) cat("Candidate factor2:", f2_pool[1], "\n") else cat("Only one factor available; two-way will be skipped.\n")
+analysis_cols <- unique(c(y_col, factor1, if (have_two_way) f2_pool[1]))
+dat <- df[analysis_cols]
+
+if (!is.factor(dat[[factor1]])) dat[[factor1]] <- as.factor(dat[[factor1]])
+if (have_two_way && !is.factor(dat[[f2_pool[1]]])) dat[[f2_pool[1]]] <- as.factor(dat[[f2_pool[1]]])
+dat <- dat[complete.cases(dat), ]
+cat("Rows after complete-case filtering:", nrow(dat), "\n")
+if (nrow(dat) < 5) stop("Not enough rows after cleaning to run ANOVA.")
+form_one <- as.formula(paste(y_col, "~", factor1))
+mod_one <- aov(form_one, data = dat)
+
+if (have_two_way) {
+    factor2 <- f2_pool[1]
+    form_two <- as.formula(paste(y_col, "~", paste0(factor1, "*", factor2)))
+    mod_two <- aov(form_two, data = dat)
+}
+
+cat("\n===== One-way ANOVA Summary =====\n")
+print(summary(mod_one))
+
+if (have_two_way) {
+    cat("\n===== Two-way ANOVA Summary (with interaction) =====\n")
+    print(summary(mod_two))
+}
+
+AIC_one <- tryCatch(AIC(mod_one), error = function(e) NA_real_)
+cat("\nAIC (One-way):", AIC_one, "\n")
+
+if (have_two_way) {
+    AIC_two <- tryCatch(AIC(mod_two), error = function(e) NA_real_)
+    cat("AIC (Two-way):", AIC_two, "\n")
+    if (is.finite(AIC_one) && is.finite(AIC_two)) {
+        if (AIC_two + 2 < AIC_one) {
+            cat("=> Two-way ANOVA preferred by AIC.\n")
+        } else if (AIC_one + 2 < AIC_two) {
+            cat("=> One-way ANOVA preferred by AIC.\n")
+        } else {
+            cat("=> AIC values are close; consider simpler model unless interaction is meaningful.\n")
+        }
+    } else {
+        cat("=> AIC comparison inconclusive (non-finite values).\n")
+    }
+} else {
+    cat("=> Two-way not available; only one-way AIC reported.\n")
+}
+
+cat("We picked a numeric outcome (", y_col, "). Factor1 was chosen among low-cardinality categoricals.\n", sep = "")
+if (have_two_way) {
+    cat("We fit: one-way (", y_col, " ~ ", factor1, ") and two-way with interaction (", y_col, " ~ ", factor1, " * ", factor2, ").\n", sep = "")
+    cat("We compared AIC; lower AIC suggests the better tradeoff of fit vs complexity.\n", sep = "")
+}
+```

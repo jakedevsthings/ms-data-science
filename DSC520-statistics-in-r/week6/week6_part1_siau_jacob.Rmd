@@ -1,0 +1,130 @@
+---
+title: "Week 6 Assignment 1"
+author: "Jacob Siau"
+output: html_document
+---
+```{r}
+set.seed(42)
+
+############################################
+## 1) Six-sided die: running average
+############################################
+## the expected value of a single fair die is 3.5, but you can never roll 3.5 on an actual throw.
+## that number is the long-run average value you approach when you roll many times.
+## goal: simulate many rolls and show the running mean approaching 3.5.
+
+n_rolls <- 2000 # number of rolls
+die_vals <- sample(1:6, n_rolls, replace = TRUE) # simulate rolls with equal chance
+run_avg <- cumsum(die_vals) / seq_along(die_vals) # running mean after each roll
+
+## visualize the running mean approaching 3.5 (Law of Large Numbers)
+par(mfrow = c(1, 1))
+plot(run_avg,
+    type = "l",
+    xlab = "Number of rolls",
+    ylab = "Running average",
+    main = "Running average of a fair die"
+)
+abline(h = 3.5, lty = 2) # theoretical expected value
+## the dashed line is E[X]=3.5; the solid line wanders then settles near 3.5 as n grows.
+
+############################################
+## 2) Box with replacement: red proportion
+############################################
+## box contents: 30 red, 15 green, with replacement
+## true red proportion = 30/(30+15) = 2/3
+n_draws <- 2000
+p_red <- 30 / 45
+## simulate draws: 1=red, 0=green
+draws <- rbinom(n_draws, size = 1, prob = p_red)
+run_prop <- cumsum(draws) / seq_along(draws)
+
+## plot convergence of sample proportion to true proportion 2/3
+plot(run_prop,
+    type = "l",
+    xlab = "Number of draws",
+    ylab = "Running proportion red",
+    main = "Proportion of red with replacement"
+)
+abline(h = p_red, lty = 2)
+## the running proportion approaches the population proportion 2/3 as draws increase.
+
+############################################
+## 3) Chapter 9 Exercise 1
+############################################
+## for each variance level tau^2 from 0.1 to 10 (40 steps),
+## draw 20 independent samples; each sample has 200 observations from N(0, tau^2).
+## for every sample we compute its mean and its variance.
+## we then look at:
+##   A) all sample means (to see how their spread changes with tau^2)
+##   B) average within-sample variance at each tau^2, and the variance of the 20 sample means.
+## as tau^2 grows, within-sample variance grows by design, but the variance of sample means stays small and roughly flat around the population mean 0, showing why averages are less noisy than raw data.
+
+## grid of tau^2 values
+tau2_seq <- seq(0.1, 10, length.out = 40)
+
+## storage for results
+## we will store a list where each entry holds the 20 sample means and 20 sample variances for that tau^2
+means_by_tau <- vector("list", length(tau2_seq))
+vars_by_tau <- vector("list", length(tau2_seq))
+
+## main simulation loop
+for (i in seq_along(tau2_seq)) {
+    tau2 <- tau2_seq[i] # current variance level
+    s_means <- numeric(20) # 20 sample means at this tau^2
+    s_vars <- numeric(20) # 20 sample variances at this tau^2
+    for (j in 1:20) {
+        x <- rnorm(200, mean = 0, sd = sqrt(tau2)) # draw 200 from N(0, tau^2)
+        s_means[j] <- mean(x) # sample mean
+        s_vars[j] <- var(x) # sample variance
+    }
+    means_by_tau[[i]] <- s_means
+    vars_by_tau[[i]] <- s_vars
+}
+## each inner sample estimates the population mean 0 and variance tau^2 with noise.
+
+## compute summaries for panel B
+avg_within_var <- sapply(vars_by_tau, mean) # average of the 20 within-sample variances
+var_of_means <- sapply(means_by_tau, var) # variance across the 20 sample means
+
+## Panel A: show all sample means for each tau^2 and also the average of those means
+par(mfrow = c(2, 1), mar = c(4, 4, 2, 1))
+
+## Prepare empty plot for all points
+plot(NA,
+    xlim = range(tau2_seq), ylim = c(-0.75, 0.75),
+    xlab = expression(tau^2), ylab = "Value",
+    main = "A) Sample averages"
+)
+## add the 20 means per tau^2 as small squares
+for (i in seq_along(tau2_seq)) {
+    points(rep(tau2_seq[i], 20), means_by_tau[[i]], pch = 15, cex = 0.6)
+}
+## add the average of means (should hover near 0) as diamonds
+avg_means <- sapply(means_by_tau, mean)
+points(tau2_seq, avg_means, pch = 23, bg = "white", cex = 1.1)
+abline(h = 0, lty = 2)
+## the cloud of sample means widens a bit with tau^2, but their overall average stays near 0.
+
+## Panel B: average within-sample variance vs tau^2, and variance of the sample means
+plot(tau2_seq, avg_within_var,
+    type = "b", pch = 17,
+    xlab = expression(tau^2), ylab = "Value",
+    main = "B) Sample variances"
+)
+lines(tau2_seq, var_of_means, type = "b", pch = 1)
+legend("topleft",
+    legend = c("Average variances", "Variance of averages"),
+    pch = c(17, 1), lty = 1, bty = "n"
+)
+## triangles grow roughly linearly with tau^2 (by construction).
+## the circles sit near zero and change slowly, showing that averaging stabilizes results across samples.
+
+## ---- Print final results ----
+cat("\nDie: final running average =", round(tail(run_avg, 1), 3), "(target 3.5)\n")
+cat("Box: final running red proportion =", round(tail(run_prop, 1), 3), "(target", round(p_red, 3), ")\n")
+cat(
+    "Exercise 1: mean of avg_means =", round(mean(avg_means), 4),
+    "; mean of avg_within_var ≈", round(mean(avg_within_var), 3), "\n"
+)
+```

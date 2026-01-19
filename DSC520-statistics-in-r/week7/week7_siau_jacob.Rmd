@@ -1,0 +1,62 @@
+---
+title: "Week 7 Exercise 1"
+author: "Jacob Siau"
+output: html_document
+---
+```{r}
+# data
+with_tv <- c(12, 7, 3, 11, 8, 5, 14, 7, 9, 10)
+without_tv <- c(8, 7, 4, 14, 6, 7, 12, 5, 5, 8)
+mean_with <- mean(with_tv)
+mean_without <- mean(without_tv)
+sd_with <- sd(with_tv)
+sd_without <- sd(without_tv)
+var_with <- var(with_tv)
+var_without <- var(without_tv)
+
+cat("With TV:\n")
+cat("Mean =", mean_with, "\nS =", sd_with, "\nS² =", var_with, "\n\n")
+cat("Without TV:\n")
+cat("Mean =", mean_without, "\nS =", sd_without, "\nS² =", var_without, "\n\n")
+
+# run t-test (alternative = "greater" because TV expected to increase eating)
+tt <- t.test(with_tv, without_tv, paired = TRUE, alternative = "greater")
+t_value <- as.numeric(tt$statistic)
+df_val <- as.numeric(tt$parameter)
+p_val <- as.numeric(tt$p.value)
+
+cat("t-test results:\n")
+cat("t =", round(t_value, 3), "\ndf =", df_val, "\np-value =", round(p_val, 3), "\n\n")
+
+cat(
+    "1. Computed t-test answer: t(", df_val, ") =", round(t_value, 3),
+    ", p =", round(p_val, 3), "\n\n"
+)
+
+cat("2. Null hypothesis (H0): Mean with TV is not greater than without TV (μd ≤ 0)\n")
+cat("3. Alternate hypothesis (H1): Mean with TV is greater than without TV (μd > 0)\n\n")
+cat("4. Probability level: α = 0.05 (common significance level)\n")
+cat("5. Degrees of freedom:", df_val, "\n\n")
+
+if (p_val < 0.05) {
+    cat(
+        "6. Interpretation: Since p <", 0.05,
+        ", we reject the null hypothesis.\n"
+    )
+    cat("There is a significant increase in candy corn eaten with TV.\n")
+} else {
+    cat(
+        "6. Interpretation: Since p >", 0.05,
+        ", we fail to reject the null hypothesis.\n"
+    )
+    cat("There is NOT a significant difference between conditions.\n")
+}
+cat("\nSummary:\n")
+cat("With TV → Mean =", round(mean_with, 2), ", S =", round(sd_with, 3), ", S² =", round(var_with, 3), "\n")
+cat("Without TV → Mean =", round(mean_without, 2), ", S =", round(sd_without, 3), ", S² =", round(var_without, 3), "\n")
+cat("t(", df_val, ") =", round(t_value, 3), ", p =", round(p_val, 3), "\n")
+cat("\nInterpretation:\n")
+cat("Kids ate about 1 more candy corn on average while watching TV (8.6 vs 7.6),\n")
+cat("but this difference was not statistically significant (p = 0.11 > 0.05).\n")
+cat("Therefore, we do not have enough evidence to support the idea that TV stimulation increases candy corn consumption in this sample.")
+```

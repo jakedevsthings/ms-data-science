@@ -1,0 +1,47 @@
+---
+title: my first rmd file
+author: Jacob Siau
+date: 2025-09-14
+output: html_document
+---
+
+## R Markdown
+
+This is my first R Markdown file for DSC 520 
+```{r}
+print("hello")
+# some math stuff
+5
+5+5
+# variables, good stuff
+name <- "jake"
+age <- 29
+name
+age
+class(age)
+max(4,5,6,8)
+nchar("test")
+paste("test", "string")
+10 > 9
+x <- 1:10
+x
+class(x)
+a <- 33
+b <- 34
+# curly bracket scope like c
+if (b>a) {
+  print("b is greater")
+}
+# data structures
+fruits <- c("watermelon","pineapple")
+veggies <- c("potato","turnip")
+fruitveg <- c(fruits,veggies)
+fruitveg
+# graphics
+plot(1,3)
+datacars <- mtcars
+datacars
+dim(datacars)
+names(datacars)
+summary(datacars)
+```

@@ -1,0 +1,276 @@
+---
+title: "Week 4 Assignment"
+author: "Jacob Siau"
+output: html_document
+---
+```{r}
+# Load data
+df <- read.csv("vgchartz-2024.csv", stringsAsFactors = FALSE)
+
+# Identify columns
+is_num <- sapply(df, is.numeric)
+num_cols <- names(df)[is_num]
+
+# Helpers
+mean_na <- function(x) mean(x, na.rm = TRUE)
+sd_na   <- function(x) sd(x, na.rm = TRUE)
+rng_na  <- function(x) {
+  fx <- x[is.finite(x)]
+  if (!length(fx)) return(c(NA_real_, NA_real_))
+  c(min(fx), max(fx))
+}
+skewness <- function(x) {
+  x <- x[is.finite(x)]
+  n <- length(x)
+  if (n < 3) return(NA_real_)
+  m <- mean(x)
+  s <- sd(x)
+  if (!is.finite(s) || s == 0) return(0)
+  mean(((x - m)/s)^3)
+}
+
+# (1) SCALE numerical data
+scaled_df <- if (length(num_cols) > 0) {
+  sc <- scale(df[, num_cols, drop = FALSE])
+  sc <- as.data.frame(sc)
+  names(sc) <- paste0(num_cols, "_scaled")
+  sc
+} else {
+  data.frame()
+}
+df <- cbind(df, scaled_df)
+
+# (2) FIX SKEW
+deskew_col <- function(x) {
+  if (!is.numeric(x)) return(x)
+  sk <- suppressWarnings(skewness(x))
+  if (!is.finite(sk) || is.na(sk)) return(x)
+  if (sk > 1) {
+    mn <- min(x, na.rm = TRUE)
+    shift <- if (is.finite(mn) && mn <= 0) abs(mn) + 1 else 0
+    log1p(x + shift)
+  } else if (sk < -1) {
+    mn <- min(x, na.rm = TRUE)
+    shift <- if (is.finite(mn) && mn <= 0) abs(mn) + 1 else 0
+    (x + shift)^2
+  } else {
+    x
+  }
+}
+if (length(num_cols) > 0) {
+  deskewed <- lapply(df[, num_cols, drop = FALSE], deskew_col)
+  deskewed <- as.data.frame(deskewed)
+  names(deskewed) <- paste0(num_cols, "_deskew")
+  df <- cbind(df, deskewed)
+}
+
+# (3) NORMALIZE
+is_normalized_01 <- function(x, tol = 1e-9) {
+  if (!is.numeric(x)) return(TRUE)
+  fx <- x[is.finite(x)]
+  if (!length(fx)) return(TRUE)
+  rmin <- min(fx); rmax <- max(fx)
+  (rmin >= -tol) && (rmax <= 1 + tol)
+}
+norm_minmax <- function(x) {
+  r <- range(x, na.rm = TRUE)
+  if (!is.finite(r[1]) || !is.finite(r[2]) || r[1] == r[2]) return(rep(0.5, length(x)))
+  (x - r[1])/(r[2] - r[1])
+}
+norm_maxabs <- function(x) {
+  m <- max(abs(x[is.finite(x)]), na.rm = TRUE)
+  if (!is.finite(m) || m == 0) return(rep(0, length(x)))
+  x / m
+}
+norm_decimal_scaling <- function(x) {
+  m <- max(abs(x[is.finite(x)]), na.rm = TRUE)
+  if (!is.finite(m) || m == 0) return(rep(0, length(x)))
+  j <- ceiling(log10(m + 1e-12))
+  x / (10^j)
+}
+norm_percentile <- function(x) {
+  r <- rank(x, na.last = "keep", ties.method = "average")
+  n <- sum(is.finite(x))
+  if (n == 0) return(x*NA)
+  (r - 0.5) / n
+}
+norm_unit_length <- function(x) {
+  nrm <- sqrt(sum(x[is.finite(x)]^2))
+  if (!is.finite(nrm) || nrm == 0) return(rep(0, length(x)))
+  x / nrm
+}
+norm_mean_range <- function(x) {
+  r <- range(x[is.finite(x)], na.rm = TRUE)
+  if (!is.finite(r[1]) || !is.finite(r[2]) || r[1] == r[2]) return(rep(0, length(x)))
+  (x - mean(x, na.rm = TRUE)) / (r[2] - r[1])
+}
+norm_median_iqr <- function(x) {
+  med <- median(x, na.rm = TRUE)
+  iq <- IQR(x, na.rm = TRUE)
+  if (!is.finite(iq) || iq == 0) return(rep(0, length(x)))
+  (x - med) / iq
+}
+norm_sigmoid <- function(x) {
+  mu <- mean(x, na.rm = TRUE)
+  sdv <- sd(x, na.rm = TRUE)
+  z <- if (!is.finite(sdv) || sdv == 0) (x - mu) else (x - mu)/sdv
+  1/(1 + exp(-z))
+}
+norm_minus1_1 <- function(x) {
+  r <- range(x[is.finite(x)], na.rm = TRUE)
+  if (!is.finite(r[1]) || !is.finite(r[2]) || r[1] == r[2]) return(rep(0, length(x)))
+  2 * (x - r[1])/(r[2] - r[1]) - 1
+}
+methods_list <- list(
+  minmax    = norm_minmax,
+  maxabs    = norm_maxabs,
+  decimal   = norm_decimal_scaling,
+  percentile= norm_percentile,
+  unitlen   = norm_unit_length,
+  meanrange = norm_mean_range,
+  mediqr    = norm_median_iqr,
+  sigmoid   = norm_sigmoid,
+  rngm11    = norm_minus1_1
+)
+
+numeric_originals <- num_cols
+to_normalize <- character(0)
+for (nm in numeric_originals) {
+  x <- df[[nm]]
+  if (is.numeric(x) && !is_normalized_01(x)) to_normalize <- c(to_normalize, nm)
+}
+available_methods <- names(methods_list)
+k <- min(length(to_normalize), length(available_methods))
+
+# Track which method used per column for reporting
+norm_methods_used <- data.frame(
+  column = character(0),
+  method = character(0),
+  stringsAsFactors = FALSE
+)
+
+if (k > 0) {
+  for (i in seq_len(k)) {
+    colname <- to_normalize[i]
+    mname <- available_methods[i]
+    fn <- methods_list[[mname]]
+    newcol <- fn(df[[colname]])
+    outname <- paste0(colname, "_norm_", mname)
+    df[[outname]] <- newcol
+    norm_methods_used <- rbind(
+      norm_methods_used,
+      data.frame(column = colname, method = mname, stringsAsFactors = FALSE)
+    )
+  }
+}
+
+# (4) SIMULATE missing release_date only
+parse_date_multi <- function(x) {
+  out <- suppressWarnings(as.Date(x))
+  if (all(is.na(out))) {
+    fmts <- c("%Y-%m-%d", "%m/%d/%Y", "%d-%b-%Y", "%b %d, %Y", "%Y/%m/%d", "%d-%m-%Y")
+    for (f in fmts) {
+      out_try <- suppressWarnings(as.Date(x, format = f))
+      nas_now <- is.na(out) & !is.na(out_try)
+      out[nas_now] <- out_try[nas_now]
+    }
+  }
+  out
+}
+
+date_report <- NULL
+if ("release_date" %in% names(df)) {
+  rd_raw <- df[["release_date"]]
+  rd_parsed_before <- if (inherits(rd_raw, "Date")) rd_raw else parse_date_multi(rd_raw)
+  na_before <- sum(is.na(rd_parsed_before))
+
+  rd <- rd_parsed_before
+  obs <- rd[!is.na(rd)]
+  if (length(obs) > 0) {
+    n_na <- sum(is.na(rd))
+    if (n_na > 0) {
+      # Simple simulation by resampling observed dates
+      set.seed(42)
+      sim_dates <- sample(obs, size = n_na, replace = TRUE)
+      rd[is.na(rd)] <- sim_dates
+    }
+  }
+  df[["release_date_filled"]] <- rd
+  na_after <- sum(is.na(df[["release_date_filled"]]))
+  date_report <- data.frame(
+    metric = c("NA_before", "NA_after"),
+    value  = c(na_before, na_after),
+    stringsAsFactors = FALSE
+  )
+}
+
+# REPORT
+# Scaling report: original mean/sd vs scaled mean/sd
+scaling_report <- if (length(num_cols) > 0 && ncol(scaled_df) > 0) {
+  data.frame(
+    column          = num_cols,
+    orig_mean       = sapply(num_cols, function(nm) mean_na(df[[nm]])),
+    orig_sd         = sapply(num_cols, function(nm) sd_na(df[[nm]])),
+    scaled_mean     = sapply(num_cols, function(nm) mean_na(df[[paste0(nm, "_scaled")]])),
+    scaled_sd       = sapply(num_cols, function(nm) sd_na(df[[paste0(nm, "_scaled")]])),
+    stringsAsFactors = FALSE
+  )
+} else {
+  data.frame()
+}
+
+# Skew report: before vs after deskew
+skew_report <- if (length(num_cols) > 0) {
+  data.frame(
+    column      = num_cols,
+    skew_before = sapply(num_cols, function(nm) skewness(df[[nm]])),
+    skew_after  = sapply(num_cols, function(nm) {
+      dn <- paste0(nm, "_deskew")
+      if (dn %in% names(df)) skewness(df[[dn]]) else NA_real_
+    }),
+    stringsAsFactors = FALSE
+  )
+} else {
+  data.frame()
+}
+
+# Normalization report: method and post-range
+norm_cols <- grep("_norm_", names(df), value = TRUE)
+norm_report <- if (length(norm_cols) > 0) {
+  data.frame(
+    column_created = norm_cols,
+    source_column  = sub("_norm_.*$", "", norm_cols),
+    method         = sub(".*_norm_", "", norm_cols),
+    min_after      = sapply(norm_cols, function(nm) rng_na(df[[nm]])[1]),
+    max_after      = sapply(norm_cols, function(nm) rng_na(df[[nm]])[2]),
+    stringsAsFactors = FALSE
+  )
+} else {
+  data.frame()
+}
+
+cat("## What changed after scaling?\n")
+if (nrow(scaling_report)) print(scaling_report, row.names = FALSE) else cat("No numeric columns to scale.\n")
+
+cat("\n## Skew before vs after deskew\n")
+if (nrow(skew_report)) print(skew_report, row.names = FALSE) else cat("No numeric columns to assess skewness.\n")
+
+cat("\n## Normalization methods and resulting ranges\n")
+if (nrow(norm_report)) {
+  # Merge with methods used for clarity
+  print(merge(norm_report, norm_methods_used, by.x = "source_column", by.y = "column", all.x = TRUE), row.names = FALSE)
+} else {
+  cat("No additional normalization applied.\n")
+}
+
+cat("\n## release_date missingness before vs after simulation\n")
+if (!is.null(date_report)) print(date_report, row.names = FALSE) else cat("No release_date column found.\n")
+
+list(
+  scaled_columns = if (ncol(scaled_df)) names(scaled_df) else character(0),
+  deskew_columns = if (length(num_cols)>0) paste0(num_cols, "_deskew") else character(0),
+  normalized_columns = grep("_norm_", names(df), value = TRUE),
+  release_date_fill_summary = if (!is.null(date_report)) setNames(date_report$value, date_report$metric) else c()
+)
+
+```

@@ -1,0 +1,74 @@
+---
+title: "Week 5 Assignment"
+author: "Jacob Siau"
+output: html_document
+---
+
+## Probability Theory
+Probability theory studies randomness. We define a **sample space** of all outcomes, assign each outcome a **probability** between 0 and 1, and use rules like addition and multiplication to find the chance of events. 
+Independent events don't affect each other. Conditional probability updates chances when we know extra info. Expected value is the long run average payoff if we repeated a random process many times.
+
+```{r}
+# 1) How many different license plates can be made from six digits?
+license_plates <- 10^6 # 10 choices per digit, 6 positions
+# e.g. (0123456789)(0123456789)(...)(...)(...)(...)
+
+# 2) When flipping a coin, what is the probability you will get heads three times in a row?
+p_hhh <- (1 / 2)^3 # independent flips
+
+# Build a simple visualization of all 8 sequences, highlight HHH
+seqs <- c("HHH", "HHT", "HTH", "HTT", "THH", "THT", "TTH", "TTT")
+probs <- rep(1 / 8, length(seqs)) # fair coin, all sequences equally likely
+cols <- ifelse(seqs == "HHH", "tomato", "lightgray")
+
+# Draw bar chart
+op <- par(mar = c(6, 4, 2, 1)) # more space for x labels
+barplot(
+    probs,
+    names.arg = seqs,
+    col = cols,
+    ylim = c(0, max(probs) * 1.2),
+    main = "Probability of Each 3-Flip Sequence (HHH highlighted)",
+    ylab = "Probability"
+)
+par(op)
+
+# 3) Given a standard 52 card deck of cards, what is the probability you’ll randomly draw an Ace of Spades and then Two of Hearts in a row?
+p_aceofspaces_twoofhearts <- (1 / 52) * (1 / 51)
+
+# 4) Dice: given first die is 6, P(sum = 9) means second die must be 3
+p_sum9_given_first6 <- 1 / 6
+
+# 5) Investment expected value
+ev_invest <- 0.30 * 70000 + 0.70 * (-40000) # dollars
+
+# 6) Lottery expected value (per $2 ticket)
+# Prizes: 1 x 200,000; 5 x 1,000; 15 x 300; 25 x 10; total tickets = 5,000,000
+total_tix <- 5e6
+expected_winnings <- (1 * 200000 + 5 * 1000 + 15 * 300 + 25 * 10) / total_tix
+expected_net <- expected_winnings - 2 # subtract ticket cost
+
+# ---- Print clear answers ----
+cat("1) License plates (six digits):", format(license_plates, big.mark = ","), "\n\n")
+
+cat(
+    "2) P(HHH):", p_hhh, "which is 1/8 =", round(p_hhh, 3), "\n",
+    "   (See chart above.)\n\n"
+)
+
+cat(
+    "3) P(Ace of Spades then Two of Hearts):", p_aceofspaces_twoofhearts,
+    "≈", signif(p_aceofspaces_twoofhearts, 3), "\n\n"
+)
+
+cat(
+    "4) P(sum=9 | first die is 6):", p_sum9_given_first6,
+    "=", round(p_sum9_given_first6, 3), "\n\n"
+)
+
+cat("5) Investment EV ($):", ev_invest, "\n")
+cat("   Decision:", ifelse(ev_invest > 0, "Invest (positive EV).", "Do not invest (negative EV)."), "\n\n")
+
+cat("6) Lottery expected winnings per ticket ($):", round(expected_winnings, 5), "\n")
+cat("   Lottery expected net per ticket after $2 cost ($):", round(expected_net, 5), "\n")
+```

@@ -1,0 +1,175 @@
+---
+title: "Week 10 Exercise"
+author: "Jacob Siau"
+output: html_document
+---
+```{r}
+
+# 1. Load and inspect data
+options(scipen = 999)
+housing <- read.csv("Housing.csv", stringsAsFactors = FALSE)
+
+# 2. Basic cleaning and transformations
+# Convert yes/no and category fields to factors
+cat_cols <- c(
+    "mainroad",
+    "guestroom",
+    "basement",
+    "hotwaterheating",
+    "airconditioning",
+    "prefarea",
+    "furnishingstatus"
+)
+
+for (nm in cat_cols) {
+    housing[[nm]] <- factor(housing[[nm]])
+}
+
+# Parking is numeric count of spots, leave as numeric
+# Create a simple derived feature for the multiple regression model:
+# average area per "room-like" unit (bedrooms + bathrooms)
+housing$area_per_room <- housing$area / (housing$bedrooms + housing$bathrooms)
+
+# Brief explanation of transformations
+cat("\nData transformations:\n")
+cat("- Converted binary and categorical text variables (mainroad, guestroom, basement, hotwaterheating, airconditioning, prefarea, furnishingstatus) into factors.\n")
+cat("- Left parking as numeric, since it counts parking spots.\n")
+cat("- Created a new numeric predictor area_per_room = area / (bedrooms + bathrooms) to capture how large the home feels per room.\n\n")
+
+# 3. Model 1: price ~ area
+# Simple linear regression: price inferred from area only
+model1 <- lm(price ~ area, data = housing)
+
+cat("Model 1: price ~ area\n")
+summary(model1)
+# Extract metrics for Model 1
+summary_m1 <- summary(model1)
+r2_m1 <- summary_m1$r.squared
+adjr2_m1 <- summary_m1$adj.r.squared
+resid_m1 <- residuals(model1)
+mse_m1 <- mean(resid_m1^2)
+rmse_m1 <- sqrt(mse_m1)
+
+cat("\nModel 1 metrics:\n")
+cat("R-squared:     ", round(r2_m1, 4), "\n")
+cat("Adj R-squared: ", round(adjr2_m1, 4), "\n")
+cat("MSE:           ", round(mse_m1, 0), "\n")
+cat("RMSE:          ", round(rmse_m1, 0), "\n\n")
+cat("Model 1 explanation (in words):\n")
+cat("- Area is a statistically significant predictor of price.\n")
+cat("- R-squared is around", round(r2_m1, 3), ", so area alone explains roughly", round(r2_m1 * 100, 1), "% of the variation in sale price.\n")
+cat("- The RMSE is around", round(rmse_m1, 0), "rupees, which gives a sense of the typical prediction error size with this simple model.\n\n")
+
+# 4. Residual diagnostics for Model 1
+# Residuals vs fitted plot
+plot(
+    x = fitted(model1),
+    y = resid_m1,
+    xlab = "Fitted values (Model 1)",
+    ylab = "Residuals",
+    main = "Model 1: Residuals vs Fitted"
+)
+abline(h = 0, col = "red")
+
+cat("Residual plot comment for Model 1:\n")
+cat("- Residuals are centered around zero, which is good.\n")
+cat("- The spread is not perfectly constant across fitted values, so there is some hint of heteroscedasticity.\n\n")
+qqnorm(resid_m1, main = "Model 1: Normal Q-Q Plot")
+qqline(resid_m1, col = "red")
+
+cat("QQ plot comment for Model 1:\n")
+cat("- Points roughly follow the straight line, but there are noticeable deviations in the tails.\n")
+cat("- Normality is not perfect, but it is not completely broken either. The normality assumption is only partially met.\n\n")
+
+# 5. Model 2: Multiple regression for price (GLM via lm)
+# Multiple linear regression with several predictors
+# Chosen predictors:
+# - area: larger homes should cost more
+# - bedrooms: more bedrooms usually means higher price
+# - bathrooms: more bathrooms add value
+# - stories: more stories usually indicate a larger or more premium house
+# - mainroad: houses on the main road may be more accessible and priced higher
+# - airconditioning: AC is a comfort feature that should increase price
+# - parking: more parking spots are valuable
+# - prefarea: preferred area should raise prices
+# - furnishingstatus: furnished or semi-furnished homes may sell for more
+# - area_per_room: tries to capture how spacious each room is
+
+model2 <- lm(
+    price ~ area +
+        bedrooms +
+        bathrooms +
+        stories +
+        mainroad +
+        airconditioning +
+        parking +
+        prefarea +
+        furnishingstatus +
+        area_per_room,
+    data = housing
+)
+
+cat("Model 2: price ~ multiple predictors\n")
+summary(model2)
+# Extract metrics for Model 2
+summary_m2 <- summary(model2)
+r2_m2 <- summary_m2$r.squared
+adjr2_m2 <- summary_m2$adj.r.squared
+resid_m2 <- residuals(model2)
+mse_m2 <- mean(resid_m2^2)
+rmse_m2 <- sqrt(mse_m2)
+
+cat("\nModel 2 metrics:\n")
+cat("R-squared:     ", round(r2_m2, 4), "\n")
+cat("Adj R-squared: ", round(adjr2_m2, 4), "\n")
+cat("MSE:           ", round(mse_m2, 0), "\n")
+cat("RMSE:          ", round(rmse_m2, 0), "\n\n")
+cat("Model 2 explanation (in words):\n")
+cat("- R-squared is much higher than Model 1, around", round(r2_m2, 3), ", so the model explains a much larger share of price variation.\n")
+cat("- Adjusted R-squared stays high, which means the extra predictors are adding real information rather than just overfitting.\n")
+cat("- RMSE drops noticeably compared to Model 1, so predictions are closer to the observed prices.\n")
+cat("- Several predictors (area, bathrooms, stories, parking, some of the categorical features) show strong and significant effects on price.\n\n")
+
+# 6. Residual diagnostics for Model 2
+# Residuals vs fitted plot for Model 2
+plot(
+    x = fitted(model2),
+    y = resid_m2,
+    xlab = "Fitted values (Model 2)",
+    ylab = "Residuals",
+    main = "Model 2: Residuals vs Fitted"
+)
+abline(h = 0, col = "red")
+
+cat("Residual plot comment for Model 2:\n")
+cat("- Residuals are still centered around zero.\n")
+cat("- The spread looks a bit more even compared to Model 1, but there is still some mild pattern, so the constant variance assumption is better but not perfect.\n\n")
+qqnorm(resid_m2, main = "Model 2: Normal Q-Q Plot")
+qqline(resid_m2, col = "red")
+
+cat("QQ plot comment for Model 2:\n")
+cat("- Residuals follow the reference line more closely than in Model 1, especially in the middle of the distribution.\n")
+cat("- There are still tail deviations, so normality is improved but not exact. For large samples like this, mild deviations are usually acceptable.\n\n")
+
+# 7. Compare Model 1 and Model 2 + ANOVA test
+cat("Model comparison:\n")
+cat("Model 1 R-squared:     ", round(r2_m1, 4), "\n")
+cat("Model 1 Adj R-squared: ", round(adjr2_m1, 4), "\n")
+cat("Model 1 RMSE:          ", round(rmse_m1, 0), "\n\n")
+cat("Model 2 R-squared:     ", round(r2_m2, 4), "\n")
+cat("Model 2 Adj R-squared: ", round(adjr2_m2, 4), "\n")
+cat("Model 2 RMSE:          ", round(rmse_m2, 0), "\n\n")
+cat("Interpretation of metrics:\n")
+cat("- Model 2 has a much higher R-squared and adjusted R-squared than Model 1.\n")
+cat("- Model 2 has a lower RMSE and MSE, so its predictions are noticeably more accurate.\n")
+cat("- Overall, the multiple regression model clearly improves on the simple area-only model.\n\n")
+
+# ANOVA to test if Model 2 is a significant improvement over Model 1
+anova_result <- anova(model1, model2)
+anova_result
+
+cat("\nANOVA comparison (Model 1 vs Model 2):\n")
+cat("- The ANOVA table shows a large F-statistic and a very small p-value for the comparison.\n")
+cat("- This means Model 2 provides a statistically significant improvement in fit over Model 1.\n")
+cat("- In plain language, adding the extra predictors (bedrooms, bathrooms, stories, mainroad, airconditioning, parking, prefarea, furnishingstatus, area_per_room) gives a much better explanation of sale price than using area alone.\n\n")
+```

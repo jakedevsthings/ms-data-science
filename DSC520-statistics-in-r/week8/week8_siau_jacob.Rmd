@@ -1,0 +1,101 @@
+---
+title: "Week 8 Exercise"
+author: "Jacob Siau"
+output: html_document
+---
+```{r}
+travel <- read.csv("travel_insurance.csv", stringsAsFactors = FALSE)
+str(travel)
+numeric_data <- travel[, sapply(travel, is.numeric)]
+x <- travel$Duration
+y <- travel$Age
+pair_df <- na.omit(data.frame(Duration = x, Age = y))
+x <- pair_df$Duration
+y <- pair_df$Age
+
+
+pearson_xy <- cor(x, y, method = "pearson")
+pearson_xy
+spearman_xy <- cor(x, y, method = "spearman")
+kendall_xy <- cor(x, y, method = "kendall")
+spearman_xy
+kendall_xy
+
+cor_matrix <- cor(numeric_data, use = "complete.obs", method = "pearson")
+cor_matrix
+
+cov_xy <- cov(x, y, use = "complete.obs")
+cov_xy
+
+dot_xy <- sum(x * y)
+norm_x <- sqrt(sum(x^2))
+norm_y <- sqrt(sum(y^2))
+cos_sim_xy <- dot_xy / (norm_x * norm_y)
+cos_sim_xy
+
+plot(x,
+    y,
+    main = "Duration vs Age",
+    xlab = "Duration (days)",
+    ylab = "Age (years)"
+)
+abline(lm(y ~ x), col = "red") # simple trend line
+
+alpha <- 0.05
+numeric_names <- names(numeric_data)
+
+# create an empty data.frame to store results
+ci_results <- data.frame(
+    variable = character(),
+    mean = numeric(),
+    lower_95 = numeric(),
+    upper_95 = numeric(),
+    t_score = numeric(),
+    stringsAsFactors = FALSE
+)
+
+for (v in numeric_names) {
+    vals <- numeric_data[[v]]
+    # remove missing values
+    vals <- vals[!is.na(vals)]
+    n <- length(vals)
+    m <- mean(vals)
+    s <- sd(vals)
+    se <- s / sqrt(n)
+    t_crit <- qt(1 - alpha / 2, df = n - 1)
+    lower <- m - t_crit * se
+    upper <- m + t_crit * se
+    t_value <- m / se
+
+    ci_results <- rbind(
+        ci_results,
+        data.frame(
+            variable = v,
+            mean = m,
+            lower_95 = lower,
+            upper_95 = upper,
+            t_score = t_value,
+            stringsAsFactors = FALSE
+        )
+    )
+}
+
+# show the CI table
+ci_results
+
+# Pearson correlation: measures straight-line relationship.
+# Spearman: measures relationship in terms of ranked values (good for non-linear, monotonic trends).
+# Kendall: also rank-based, more robust for small samples.
+# Covariance: shows direction of joint movement, but value depends on units.
+# Cosine similarity: shows whether two numeric columns point in a similar direction when seen as vectors.
+# Confidence interval (95%): we are 95% confident the true mean is in this range.
+# t-score here: how far the sample mean is from 0, in standard error units.
+
+pearson_xy
+spearman_xy
+kendall_xy
+cov_xy
+cos_sim_xy
+cor_matrix
+ci_results
+```

@@ -1,0 +1,92 @@
+---
+title: "Week 6 Exercise 2 Part 2"
+author: "Jacob Siau"
+output: html_document
+---
+```{r}
+## significance level (two-sided)
+alpha <- 0.05
+
+z <- seq(-3, 3, length.out = 2001) # z-axis
+pdf_z <- dnorm(z) # Normal(0,1) pdf
+p_two <- 2 * pnorm(-abs(z)) # two-sided p-value for each z
+zcrit <- qnorm(1 - alpha / 2) # critical z for two-sided alpha
+Lidx <- which(z <= -zcrit) # left tail indices
+Ridx <- which(z >= zcrit) # right tail indices
+
+## A) Test statistic distribution if H0 were true
+par(mfrow = c(3, 1), mar = c(3.5, 4, 2.5, 1))
+plot(z, pdf_z,
+    type = "l", xlab = "", ylab = "Prob. given H0",
+    main = "A) Test statistic distribution if H0 were true", ylim = c(0, max(pdf_z) * 1.05)
+)
+
+## shade left tail
+polygon(c(z[Lidx], tail(z[Lidx], 1), head(z[Lidx], 1)),
+    c(pdf_z[Lidx], 0, 0),
+    col = gray(0.5, 0.4), border = NA
+)
+## shade right tail
+polygon(c(z[Ridx], tail(z[Ridx], 1), head(z[Ridx], 1)),
+    c(pdf_z[Ridx], 0, 0),
+    col = gray(0.5, 0.4), border = NA
+)
+
+## draw critical lines
+abline(v = c(-zcrit, zcrit), lty = 3)
+## simple labels
+mtext("“Significant”", side = 3, at = -zcrit, line = -1.2, adj = 1, cex = 0.8)
+mtext("“Not Significant”", side = 3, at = 0, line = -1.2, cex = 0.8)
+mtext("“Significant”", side = 3, at = zcrit, line = -1.2, adj = 0, cex = 0.8)
+
+## B) P-value for each test statistic (linear scale)
+plot(z, p_two,
+    type = "l", xlab = "", ylab = "P-value",
+    main = "B) P-value for each test statistic", ylim = c(0, 1.03)
+)
+abline(h = alpha, lty = 2) # p = alpha reference
+abline(v = c(-zcrit, zcrit), lty = 3) # critical z lines
+text(x = 2.3, y = alpha + 0.03, labels = paste0("p = ", alpha), cex = 0.9)
+
+## shade p-value tails under the curve
+polygon(c(z[Lidx], tail(z[Lidx], 1), head(z[Lidx], 1)),
+    c(p_two[Lidx], 0, 0),
+    col = gray(0.5, 0.4), border = NA
+)
+polygon(c(z[Ridx], tail(z[Ridx], 1), head(z[Ridx], 1)),
+    c(p_two[Ridx], 0, 0),
+    col = gray(0.5, 0.4), border = NA
+)
+
+## C) Same as panel B but log10 scale on y
+## add small floor to avoid log(0)
+p_floor <- pmax(p_two, 1e-6)
+plot(z, p_floor,
+    type = "l", xlab = "Test statistic (z-score)", ylab = "P-value",
+    main = "C) Same as panel B but in log scale", log = "y",
+    yaxt = "n", ylim = c(1e-6, 1)
+) # log y-axis
+## custom log10 ticks
+yticks <- 10^seq(-6, 0, by = 1)
+axis(2, at = yticks, labels = format(yticks, scientific = TRUE), las = 1)
+abline(h = alpha, lty = 2)
+abline(v = c(-zcrit, zcrit), lty = 3)
+text(x = 2.3, y = alpha * 1.15, labels = paste0("p = ", alpha), cex = 0.9)
+
+## shade tails under log plot (use same polygons with floored p-values)
+polygon(c(z[Lidx], tail(z[Lidx], 1), head(z[Lidx], 1)),
+    c(p_floor[Lidx], 1e-6, 1e-6),
+    col = gray(0.5, 0.4), border = NA
+)
+polygon(c(z[Ridx], tail(z[Ridx], 1), head(z[Ridx], 1)),
+    c(p_floor[Ridx], 1e-6, 1e-6),
+    col = gray(0.5, 0.4), border = NA
+)
+
+cat("\nalpha (two-sided) =", alpha, "\n")
+cat("Critical z values: -", round(zcrit, 3), " and ", round(zcrit, 3), "\n", sep = "")
+cat("Interpretation: any |z| >= ", round(zcrit, 3),
+    " gives p <= ", alpha, " and counts as “statistically significant”.\n",
+    sep = ""
+)
+```

@@ -1,0 +1,110 @@
+---
+title: "Week 2 Assignment"
+author: "Jacob Siau"
+output: html_document
+---
+
+```{r}
+sales <- read.csv("sales_data_sample.csv", stringsAsFactors = FALSE)
+sales$OrderDate <- as.Date(sales$OrderDate)
+sales$Region <- factor(sales$Region)
+sales$Product <- factor(sales$Product)
+```
+
+```{r fig.width=8, fig.height=5}
+products <- unique(sales$Product)
+sales_by_product <- data.frame(Product = products, TotalSales = 0)
+for (p in products) {
+    sales_by_product$TotalSales[sales_by_product$Product == p] <- sum(sales$TotalSales[sales$Product == p], na.rm = TRUE)
+}
+ord <- order(sales_by_product$TotalSales, decreasing = TRUE)
+sales_by_product <- sales_by_product[ord, ]
+par(mar = c(5, 9, 4, 2) + 0.1)
+barplot(
+    height = sales_by_product$TotalSales,
+    names.arg = sales_by_product$Product,
+    horiz = TRUE, las = 1,
+    main = "Total Sales by Product",
+    xlab = "Sum of Sales"
+)
+```
+
+```{r fig.width=6, fig.height=6}
+regions <- unique(sales$Region)
+sales_by_region <- numeric(length(regions))
+names(sales_by_region) <- regions
+for (i in seq_along(regions)) {
+    sales_by_region[i] <- sum(sales$TotalSales[sales$Region == regions[i]], na.rm = TRUE)
+}
+region_prop <- sales_by_region / sum(sales_by_region)
+labels <- paste0(names(sales_by_region), " (", round(region_prop * 100), "%)")
+pie(sales_by_region,
+    labels = labels,
+    main = "Share of Total Sales by Region"
+)
+```
+
+```{r fig.width=10, fig.height=4}
+par(mfrow = c(1, 2))
+boxplot(TotalSales ~ Region,
+    data = sales,
+    main = "Order Total Sales by Region",
+    xlab = "Region", ylab = "Total Sales", outline = TRUE
+)
+boxplot(Quantity ~ Region,
+    data = sales,
+    main = "Order Quantities by Region",
+    xlab = "Region", ylab = "Quantity", outline = TRUE
+)
+par(mfrow = c(1, 1))
+```
+
+```{r fig.width=8, fig.height=5}
+counts_by_product <- table(sales$Product)
+par(mar = c(5, 9, 4, 2) + 0.1)
+barplot(counts_by_product[order(counts_by_product, decreasing = TRUE)],
+    horiz = TRUE, las = 1,
+    main = "Number of Orders by Product",
+    xlab = "Order Count"
+)
+```
+
+```{r fig.width=7, fig.height=7}
+month_levels <- month.abb
+sales$MonthAbb <- factor(format(sales$OrderDate, "%b"), levels = month_levels)
+monthly_totals <- tapply(sales$TotalSales, sales$MonthAbb, function(x) sum(x, na.rm = TRUE))
+monthly_totals[is.na(monthly_totals)] <- 0
+r <- as.numeric(monthly_totals)
+if (all(r == 0)) {
+    r_scaled <- rep(0, length(r))
+} else {
+    r_scaled <- r / max(r)
+}
+theta <- seq(from = pi / 2, to = pi / 2 - 2 * pi + (2 * pi / 12), length.out = 12)
+par(pty = "s")
+plot(NA, NA,
+    xlim = c(-1.1, 1.1), ylim = c(-1.1, 1.1),
+    xlab = "", ylab = "", axes = FALSE,
+    main = "Total Sales by Month (Radial)"
+)
+symbols(rep(0, 4), rep(0, 4), circles = c(1, 0.75, 0.5, 0.25), inches = FALSE, add = TRUE, fg = "grey80")
+for (i in 1:12) {
+    x <- r_scaled[i] * cos(theta[i])
+    y <- r_scaled[i] * sin(theta[i])
+    segments(0, 0, x, y, col = "grey40")
+    points(x, y, pch = 16, cex = 1.2)
+}
+xp <- r_scaled * cos(theta)
+yp <- r_scaled * sin(theta)
+polygon(xp, yp, border = "grey30", col = rgb(0.3, 0.3, 0.8, 0.2))
+label_radius <- 1.05
+for (i in 1:12) {
+    text(label_radius * cos(theta[i]), label_radius * sin(theta[i]),
+        labels = month_levels[i], cex = 0.9
+    )
+}
+legend("bottomleft",
+    legend = paste0("Max monthly total: ", format(max(r), big.mark = ",")),
+    bty = "n"
+)
+```

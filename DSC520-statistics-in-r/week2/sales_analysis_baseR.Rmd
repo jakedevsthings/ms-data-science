@@ -1,0 +1,161 @@
+---
+title: "Sales Data Visualizations (Base R Only)"
+author: "Jacob Siau"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    theme: readable
+---
+
+```{r setup, include=FALSE}
+# Base R only: no external packages required
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+# Load Data (Base R)
+
+```{r}
+# Adjust the path if your CSV is elsewhere
+csv_path <- "sales_data_sample.csv"
+
+sales <- read.csv(csv_path, stringsAsFactors = FALSE)
+
+# Ensure expected columns exist
+stopifnot(all(c("OrderID","OrderDate","Region","Product","Quantity","UnitPrice","TotalSales") %in% names(sales)))
+
+# Parse dates
+sales$OrderDate <- as.Date(sales$OrderDate)
+
+# Convert Region/Product to factors for plotting
+sales$Region  <- factor(sales$Region)
+sales$Product <- factor(sales$Product)
+
+str(sales)
+summary(sales$OrderDate)
+```
+
+# 1) Bar graph: Sum of Sales by Product (Base R)
+
+```{r fig.width=8, fig.height=5}
+# Aggregate total sales by product
+sales_by_product <- aggregate(TotalSales ~ Product, data = sales, FUN = function(x) sum(x, na.rm = TRUE))
+
+# Order descending for nicer plot
+ord <- order(sales_by_product$TotalSales, decreasing = TRUE)
+sales_by_product <- sales_by_product[ord, ]
+
+par(mar = c(5, 9, 4, 2) + 0.1)
+barplot(height = sales_by_product$TotalSales,
+        names.arg = sales_by_product$Product,
+        horiz = TRUE, las = 1,
+        main = "Total Sales by Product",
+        xlab = "Sum of Sales")
+```
+
+# 2) Pie chart: Sum of Sales by Region (Base R)
+
+```{r fig.width=6, fig.height=6}
+sales_by_region <- tapply(sales$TotalSales, sales$Region, function(x) sum(x, na.rm = TRUE))
+
+# Make labels with percentages
+region_prop <- sales_by_region / sum(sales_by_region)
+labels <- paste0(names(sales_by_region), " (", round(region_prop * 100), "%)")
+
+pie(sales_by_region,
+    labels = labels,
+    main = "Share of Total Sales by Region")
+```
+
+# 3) Box Plots: Order-level Sales and Quantities by Region (Base R)
+
+```{r fig.width=10, fig.height=4}
+par(mfrow = c(1, 2))
+
+boxplot(TotalSales ~ Region, data = sales,
+        main = "Order Total Sales by Region",
+        xlab = "Region", ylab = "Total Sales", outline = TRUE)
+
+boxplot(Quantity ~ Region, data = sales,
+        main = "Order Quantities by Region",
+        xlab = "Region", ylab = "Quantity", outline = TRUE)
+
+par(mfrow = c(1, 1))
+```
+
+# 4) Histogram/Bar: Count of Orders by Product (Base R)
+
+```{r fig.width=8, fig.height=5}
+counts_by_product <- table(sales$Product)
+
+par(mar = c(5, 9, 4, 2) + 0.1)
+barplot(counts_by_product[order(counts_by_product, decreasing = TRUE)],
+        horiz = TRUE, las = 1,
+        main = "Number of Orders by Product",
+        xlab = "Order Count")
+```
+
+# 5) Radial Plot: Total Sales by Month (All Products) — Base R, No Packages
+
+```{r fig.width=7, fig.height=7}
+# Compute monthly totals (calendar months across all years)
+# Use month abbreviations and keep them in Jan..Dec order
+month_levels <- month.abb  # built-in constant
+sales$MonthAbb <- factor(format(sales$OrderDate, "%b"), levels = month_levels)
+
+monthly_totals <- tapply(sales$TotalSales, sales$MonthAbb, function(x) sum(x, na.rm = TRUE))
+monthly_totals[is.na(monthly_totals)] <- 0
+
+# Normalize radii to [0, 1] for plotting
+r <- as.numeric(monthly_totals)
+if (all(r == 0)) {
+  r_scaled <- rep(0, length(r))
+} else {
+  r_scaled <- r / max(r)
+}
+
+# Angles for 12 months, start at 90 degrees (up) and go clockwise
+theta <- seq(from = pi/2, to = pi/2 - 2*pi + (2*pi/12), length.out = 12)
+# Or equivalently: theta <- (pi/2) - 2*pi*(0:11)/12
+
+# Plot setup
+par(pty = "s")  # square plot
+plot(NA, NA, xlim = c(-1.1, 1.1), ylim = c(-1.1, 1.1),
+     xlab = "", ylab = "", axes = FALSE,
+     main = "Total Sales by Month (Radial)")
+
+# Draw circular grid
+symbols(0, 0, circles = c(1, 0.75, 0.5, 0.25), inches = FALSE, add = TRUE, fg = "grey80")
+
+# Draw spokes and points
+for (i in 1:12) {
+  x <- r_scaled[i] * cos(theta[i])
+  y <- r_scaled[i] * sin(theta[i])
+  # spoke
+  segments(0, 0, x, y, col = "grey40")
+  # point at the end of spoke
+  points(x, y, pch = 16, cex = 1.2)
+}
+
+# Connect the months to form a radial polygon
+xp <- r_scaled * cos(theta)
+yp <- r_scaled * sin(theta)
+polygon(xp, yp, border = "grey30", col = rgb(0.3, 0.3, 0.8, 0.2))
+
+# Month labels slightly beyond unit circle
+label_radius <- 1.05
+for (i in 1:12) {
+  text(label_radius * cos(theta[i]), label_radius * sin(theta[i]),
+       labels = month_levels[i], cex = 0.9)
+}
+
+# Add a simple legend for scale (max value)
+legend("bottomleft",
+       legend = paste0("Max monthly total: ", format(max(r), big.mark = ",")),
+       bty = "n")
+```
+
+## Notes
+- This document relies only on base R functions (`read.csv`, `aggregate`, `tapply`, `barplot`, `boxplot`, `pie`, `segments`, `polygon`, etc.).
+- Ensure your `OrderDate` column is in a format recognized by `as.Date`. If needed, specify a format like: `as.Date(sales$OrderDate, format = "%Y-%m-%d")`.
+- If you want a true polar bar chart, you typically need an additional package. The above radial plot approximates a polar/radar style using base graphics.

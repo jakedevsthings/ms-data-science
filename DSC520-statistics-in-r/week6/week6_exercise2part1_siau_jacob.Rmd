@@ -1,0 +1,82 @@
+---
+title: "Week 6 Exercise 2 Part 1"
+author: "Jacob Siau"
+output: html_document
+---
+```{r}
+## Reproducibility
+set.seed(123)
+
+############################################################
+## Example 1: Social media vs. cognitive ability (2x2 table)
+############################################################
+## H0: Using social media does NOT increase the chance of lower cognitive ability.
+## HA: Using social media DOES increase the chance of lower cognitive ability.
+## This is a one-sided test because the direction is specified (increase in "Lower").
+## Alpha = 0.05.
+
+## Build the 2x2 table.
+## Row names: Social use (Y/N)
+## Col names: Outcome (Lower/Higher)
+## We place "Lower" as the first column so that 'alternative="greater"' tests
+## odds ratio > 1 for (Y,Lower) vs (N,Lower).
+tab <- matrix(
+    c(
+        120, 1,
+        2, 118
+    ),
+    nrow = 2, byrow = TRUE,
+    dimnames = list(
+        Social = c("Y", "N"),
+        Outcome = c("Lower", "Higher")
+    )
+)
+tab
+
+## Fisher's exact test (one-sided: greater)
+ft <- fisher.test(tab, alternative = "greater")
+ft
+
+## Pull p-value and decision
+p1 <- ft$p.value
+cat("\nExample 1 p-value =", signif(p1, 6), "\n")
+if (p1 < 0.05) {
+    cat("Decision @ alpha=0.05: Reject H0. Evidence that social media use is associated with LOWER cognitive ability.\n\n")
+} else {
+    cat("Decision @ alpha=0.05: Fail to reject H0. No evidence of association.\n\n")
+}
+
+############################################################
+## Example 2: Fair coin tossed 100 times, got 95 heads
+############################################################
+## H0: p(heads) = 0.5    (fair coin)
+## HA: p(heads) ≠ 0.5    (not fair)
+## This is TWO-SIDED because the alternative does not specify a direction.
+
+heads <- 95
+trials <- 100
+bt <- binom.test(heads, trials, p = 0.5, alternative = "two.sided")
+bt
+
+## Pull p-value and decision
+p2 <- bt$p.value
+cat("\nExample 2 p-value =", signif(p2, 6), "\n")
+if (p2 < 0.05) {
+    cat("Decision @ alpha=0.05: Reject H0. The result is extremely unlikely under a fair coin.\n")
+} else {
+    cat("Decision @ alpha=0.05: Fail to reject H0. The result is plausible under a fair coin.\n")
+}
+
+cat("\n--- Quick Answers ---\n")
+cat("Example 1 (Social vs Cognitive):\n")
+cat("Alternative hypothesis: Social media use increases the probability of LOWER cognitive ability.\n")
+cat("p-value:", signif(p1, 6), "\n")
+cat("Conclusion:", ifelse(p1 < 0.05, "Reject H0 (evidence of association).", "Fail to reject H0."), "\n")
+cat("Test side: One-sided (directional: 'increases lower').\n\n")
+
+cat("Example 2 (Coin, 100 tosses, 95 heads):\n")
+cat("Alternative hypothesis: p(heads) ≠ 0.5.\n")
+cat("p-value:", signif(p2, 6), "\n")
+cat("Conclusion:", ifelse(p2 < 0.05, "Reject H0 (evidence coin is not fair).", "Fail to reject H0."), "\n")
+cat("Test side: Two-sided (no direction specified).\n")
+```

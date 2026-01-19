@@ -1,0 +1,184 @@
+---
+title: "Week 3 Assignment"
+author: "Jacob Siau"
+output: html_document
+---
+```{r}
+# Load necessary libraries
+library(tidyverse)
+library(knitr)
+
+# Read in the dataset
+df <- read.csv("sales_data_sample.csv", stringsAsFactors = FALSE)
+
+# Identify numeric columns excluding 'OrderID'
+numeric_cols <- df %>%
+    select(where(is.numeric)) %>%
+    select(-any_of(c("OrderID"))) %>%
+    names()
+
+# Calculate mode
+mode_value <- function(x) {
+    # calculate the mode
+    ux <- unique(x)
+    ux[which.max(tabulate(match(x, ux)))]
+}
+
+# calculate the skewness manually
+skewness_manual <- function(x) {
+    x <- x[is.finite(x)]
+    n <- length(x)
+    m <- mean(x)
+    s <- sd(x)
+    if (n < 3 || s == 0) {
+        return(NA_real_)
+    }
+    m3 <- mean((x - m)^3)
+    (sqrt(n * (n - 1)) / (n - 2)) * (m3 / (s^3))
+}
+
+# calculate the kurtosis manually
+kurtosis_excess_manual <- function(x) {
+    x <- x[is.finite(x)]
+    n <- length(x)
+    m <- mean(x)
+    s2 <- var(x)
+    if (n < 4 || s2 == 0) {
+        return(NA_real_)
+    }
+    m4 <- mean((x - m)^4)
+    g2 <- m4 / (s2^2) - 3
+    adj <- ((n - 1) / ((n - 2) * (n - 3))) * ((n + 1) * g2 + 6)
+    adj
+}
+
+# Create a summary data frame
+data.frame(
+    Column = numeric_cols,
+    Class = sapply(df[numeric_cols], class),
+    NonMissing = sapply(df[numeric_cols], function(x) sum(is.finite(x))),
+    Missing = sapply(df[numeric_cols], function(x) sum(!is.finite(x)))
+) %>%
+    kable(caption = "Numeric Attributes Overview")
+
+# Define specific descriptions for each column
+descriptions <- list(
+    Quantity = list(
+        central_tendency = "The central tendency for this column is quite middled which means it is a fairly even spread",
+        dispersion = "The dispersion indicates an even spread in order sizes",
+        iqr = "IQR for Quantity is also indicative of an even spread. typical orders are spread out."
+    ),
+    UnitPrice = list(
+        central_tendency = "the mean/median/mode are relatively close for most of the data here. the distribution is bimodal which indicates two distinct groups of products at two price tiers.",
+        dispersion = "The range is large, and the stdev/variance indicate the spread across the two clusters of data",
+        iqr = "IQR for unitprice indicates most products fall into the moderate price band between about 25-75."
+    ),
+    TotalSales = list(
+        central_tendency = "This data is heavily right-skewed, meaning most sales totals are small.",
+        dispersion = "The dispersion values are large because of the large range/variance.",
+        iqr = "IQR here shows that the middle 50% of sales totals fall toward the beginning of the distribution (where the middle 50% of values are located)."
+    )
+)
+
+# Loop through each numeric column to compute statistics and generate plots
+for (col in numeric_cols) {
+    # Extract the column and remove NA values
+    x <- df[[col]]
+    x <- x[is.finite(x)]
+
+    # Compute basic statistics
+    mu <- mean(x)
+    med <- median(x)
+    mo <- tryCatch(mode_value(x), error = function(e) NA)
+    sdev <- sd(x)
+    varx <- var(x)
+    rng <- diff(range(x))
+    q1 <- quantile(x, 0.25, names = FALSE, type = 7)
+    q3 <- quantile(x, 0.75, names = FALSE, type = 7)
+    iqrV <- IQR(x, type = 7)
+    skew <- skewness_manual(x)
+    kurt <- kurtosis_excess_manual(x)
+
+    # Output the results
+    cat("\n\n")
+    cat("##", col, "\n")
+    cat("\nThe histogram/density below shows the overall distribution.\n\n")
+
+    # Compute summary statistics
+    stats_tbl <- data.frame(
+        Statistic = c("Mean", "Median", "Mode", "Std. Dev.", "Variance", "Range", "Q1", "Q3", "IQR", "Skewness", "Excess Kurtosis"),
+        Value = c(mu, med, mo, sdev, varx, rng, q1, q3, iqrV, skew, kurt)
+    )
+    print(kable(stats_tbl, caption = paste0("Summary Statistics for ", col)))
+
+    cat("\nCentral Tendency:", descriptions[[col]]$central_tendency, "\n\n")
+    cat("Dispersion:", descriptions[[col]]$dispersion, "\n\n")
+    cat("IQR:", descriptions[[col]]$iqr, "\n\n")
+
+    # Generate plots
+    suppressWarnings({
+        p_hist <- ggplot(data.frame(x = x), aes(x = x)) +
+            geom_histogram(aes(y = after_stat(density)), bins = 30, alpha = 0.6) +
+            geom_density(linewidth = 0.7) +
+            geom_vline(xintercept = mu) +
+            geom_vline(xintercept = med) +
+            {
+                if (!is.na(mo)) geom_vline(xintercept = mo) else NULL
+            } +
+            labs(title = paste("Histogram & Density:", col), x = col, y = "Density")
+        print(p_hist)
+    })
+
+    # Generate boxplot
+    p_box <- ggplot(data.frame(x = x), aes(y = x)) +
+        geom_boxplot(width = 0.3) +
+        labs(title = paste("Boxplot with IQR:", col), y = col, x = NULL)
+    print(p_box)
+}
+
+# Compute statistical moments
+moments_tbl <- lapply(numeric_cols, function(col) {
+    x <- df[[col]]
+    x <- x[is.finite(x)]
+    mu <- mean(x)
+    varx <- var(x)
+    skew <- skewness_manual(x)
+    kurt <- kurtosis_excess_manual(x)
+    data.frame(
+        Column = col,
+        Mean = mu,
+        Variance = varx,
+        Skewness = skew,
+        ExcessKurtosis = kurt
+    )
+}) %>% bind_rows()
+
+# Display the table
+kable(moments_tbl, caption = "Statistical Moments by Numeric Attribute")
+
+# Analyze product counts
+if ("Product" %in% names(df)) {
+    prod_counts <- df %>% count(Product, name = "Count")
+
+    # Bin the product counts
+    breaks <- pretty(range(prod_counts$Count), n = 4)
+    if (length(unique(breaks)) < 3) {
+        breaks <- seq(min(prod_counts$Count), max(prod_counts$Count), length.out = 4)
+    }
+    prod_counts$CountBin <- cut(prod_counts$Count, breaks = breaks, include.lowest = TRUE, right = TRUE)
+
+    # Create a binned table
+    binned_tbl <- prod_counts %>%
+        group_by(CountBin) %>%
+        summarise(Categories = n(), TotalObservations = sum(Count), .groups = "drop")
+
+    # Display the table
+    print(kable(binned_tbl, caption = "Binned Category Frequencies (Product)"))
+
+    # Generate plots
+    p_bar <- ggplot(prod_counts, aes(x = CountBin)) +
+        geom_bar() +
+        labs(title = "Product Categories Grouped by Frequency Bins", x = "Count Bin", y = "Number of Products")
+    print(p_bar)
+}
+```
