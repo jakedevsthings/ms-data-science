@@ -1,0 +1,80 @@
+Once you have successfully installed the necessary tools and packages, you are expected to follow-along the Python code examples in Chapters 2 and 3 to understand how to import and manipulate data. The exercise this week focuses on applying the skills you obtained from these chapters. Once you have given it a try, you can use the solution files to verify your results.
+
+Watch the assignment videos below to learn how to use the DSC_530_Assignment_Template.ipynb   to record your work.
+
+
+
+DSC530 Weeks 1 & 2 Assignment Videos:
+
+
+
+WindowsOS -JupyterLab or Notebook and Using Assignment Template (Bellevue, 2024, 11:09 minutes)
+MacOS JupyterLab/Using Assignment Template (Bellevue, 2024, 4:59 minutes)
+MacOS Jupyter Notebook/Using Assignment Template (Bellevue, 2024, 3:50 minutes)
+
+
+Setup your assignment notebook with access to the Chapter 3 data files for Hands-On Data Analysis with Pandas (Molin, 2021) and use JupyterLab or Jupyter Notebook to complete the following problems.
+
+
+
+Exercises 1 – 6 in Chapter 3 from Hands-On Data Analysis with Pandas (Molin, 2021)
+
+These exercises also appear in Chapter 3 in the Molin textbook.
+
+
+
+Exercise 1.
+
+We want to look at data for the Facebook, Apple, Amazon, Netflix, and Google (FAANG) stocks, but we were given each as a separate CSV file (obtained using the stock_analysis package we will build in Chapter 7, Financial Analysis – Bitcoin and the Stock Market). Combine them into a single file and store the dataframe of the FAANG data as faang for the rest of the exercises:
+Read in the aapl.csv, amzn.csv, fb.csv, goog.csv, and nflx.csv files.
+Add a column to each dataframe, called ticker, indicating the ticker symbol it is for (Apple's is AAPL, for example); this is how you look up a stock. In this case, the filenames happen to be the ticker symbols.
+Append them together into a single dataframe.
+Save the result in a CSV file called faang.csv
+
+
+Exercise 2.
+
+With faang, use type conversion to cast the values of the date column into datetimes and the volume column into integers. Then, sort by date and ticker.
+
+
+
+Exercise 3.
+
+Find the seven rows in faang with the lowest value for volume.
+
+
+
+Exercise 4.
+
+Right now, the data is somewhere between long and wide format. Use melt() to make it completely long format. Hint: date and ticker are our ID variables (they uniquely identify each row). We need to melt the rest so that we don't have separate columns for open, high, low, close, and volume.
+
+
+
+Exercise 5.
+
+Suppose we found out that on July 26, 2018 there was a glitch in how the data was recorded. How should we handle this? Note that there is no coding required for this exercise.
+
+
+
+Exercise 6.
+
+The European Centre for Disease Prevention and Control (ECDC) provides an open dataset on COVID-19 cases called daily number of new reported cases of COVID-19 by country worldwide. This dataset is updated daily, but we will use a snapshot that contains data from January 1, 2020 through September 18, 2020. Clean and pivot the data so that it is in wide format:
+
+
+
+Read in the covid19_cases.csv file.
+Create a date column using the data in the dateRep column and the pd.to_datetime() function.
+Set the date column as the index and sort the index.
+Replace all occurrences of United_States_of_America and United_Kingdom with USA and UK, respectively. Hint: the replace() method can be run on the dataframe as a whole.
+Using the countriesAndTerritories column, filter the cleaned COVID-19 cases data down to Argentina, Brazil, China, Colombia, India, Italy, Mexico, Peru, Russia, Spain, Turkey, the UK, and the USA.
+Pivot the data so that the index contains the dates, the columns contain the country names, and the values are the case counts (the cases column). Be sure to fill in NaN values with 0.
+
+
+Submission Instructions:
+
+
+
+Use Jupyter Lab or Jupyter Notebook to complete all the exercise problems and submit your code solutions with clearly displayed code outputs in one ipynb file.
+You may convert your ipynb file as a PDF file for submission, but this is not required. If you want to make your work available in PDF format, you will have to install the necessary Python packages to do that. Other methods, such as print screens or print to PDF often produce a distorted image of your Jupyter Notebook and if the instructor cannot clearly see your solutions and outputs, your work will be rejected.
+You must show all your code and the successfully produced outputs along with documentation to be considered for full credit. 
+The assignment is due by Sunday of Week 2, 11:59 p.m. CT.
